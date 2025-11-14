@@ -6,25 +6,42 @@ reserved_words = set(keyword.kwlist)
 import keyword
 import re
 
-def convert_non_keywords_to_upper(input_file, output_file):
-    # 读取原文件内容
-    with open(input_file, "r", encoding="utf-8") as f:
+def convert_python_file(input_filename, output_filename):
+    with open(input_filename, 'r', encoding='utf-8') as f:
         content = f.read()
 
-    # 正则匹配标识符（Python标识符规则：字母/下划线开头，后跟字母/数字/下划线）
-    pattern = r'\b[a-zA-Z_][a-zA-Z0-9_]*\b'
+    # 获取Python保留字集合
+    reserved_words = set(keyword.kwlist)
 
-    def replace_word(match):
-        word = match.group()
-        # 是保留字则不转换，否则转大写
-        return word if keyword.iskeyword(word) else word.upper()
+    # 正则模式：优先匹配字符串、注释，再匹配标识符
+    pattern = r'''
+        (r?["']{1,3}.*?["']{1,3})  # 匹配字符串（单/双/三引号，支持r前缀）
+        |
+        (#.*$)                     # 匹配单行注释
+        |
+        (\b[a-zA-Z_][a-zA-Z0-9_]*\b)  # 匹配Python标识符（字母/下划线开头）
+    '''
 
-    # 替换非保留字的标识符
-    processed_content = re.sub(pattern, replace_word, content)
+    def replace_match(match):
+        # 字符串和注释直接保留原样
+        if match.group(1) or match.group(2):
+            return match.group()
+        # 标识符判断是否为保留字
+        elif match.group(3):
+            word = match.group(3)
+            return word if word in reserved_words else word.upper()
+        # 其他内容（符号、数字等）直接保留
+        return match.group()
 
-    # 保存结果
-    with open(output_file, "w", encoding="utf-8") as f:
+    # 执行替换（忽略大小写+多行+verbose模式）
+    processed_content = re.sub(
+        pattern, replace_match, content,
+        flags=re.IGNORECASE | re.MULTILINE | re.VERBOSE
+    )
+
+    # 写入输出文件
+    with open(output_filename, 'w', encoding='utf-8') as f:
         f.write(processed_content)
 
-# 调用函数（输入文件、输出文件）
-convert_non_keywords_to_upper("random_int.py", "random_int_upper_v2.py")
+# 执行转换
+convert_python_file('random_int.py', 'random_int_uppercase.py')
